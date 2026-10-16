@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.bigram_model import BigramModel
 from app.word_embeddings import WordEmbeddingModel
+from app.image_classifier import ImageClassifier
 
 app = FastAPI(title="SPS GenAI API")
 
@@ -17,7 +18,9 @@ It tells the story of Edmond Dantès, who is falsely imprisoned and later seeks 
 
 bigram_model = BigramModel(corpus)
 embedding_model = WordEmbeddingModel()  # loaded once at startup
+image_classifier = ImageClassifier()  # loads CNN weights once at startup
 
+ALLOWED_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 
 class TextGenerationRequest(BaseModel):
     start_word: str
@@ -64,3 +67,16 @@ def get_similarity(request: SimilarityRequest):
     if score is None:
         raise HTTPException(status_code=404, detail="One or both words have no embedding")
     return {"word1": request.word1, "word2": request.word2, "similarity": score}
+
+
+@app.post("/classify")
+async def classify_image(file: UploadFile = File(...)):
+    """Upload an image; returns its CIFAR-10 class (airplane, cat, ship, ...)."""
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=415, detail=f"Unsupported file type: {file.content_type}")
+    image_bytes = await file.read()
+    try:
+        result = image_classifier.predict(image_bytes)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read the file as an image")
+    return {"filename": file.filename, **result}
