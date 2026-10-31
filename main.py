@@ -1,9 +1,11 @@
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from pydantic import BaseModel, Field 
+from fastapi.responses import Response
 
 from app.bigram_model import BigramModel
 from app.word_embeddings import WordEmbeddingModel
-from app.image_classifier import ImageClassifier
+from app.image_classifier import ImageClassifier 
+from app.gan_generator import DigitGenerator
 
 app = FastAPI(title="SPS GenAI API")
 
@@ -18,7 +20,8 @@ It tells the story of Edmond Dantès, who is falsely imprisoned and later seeks 
 
 bigram_model = BigramModel(corpus)
 embedding_model = WordEmbeddingModel()  # loaded once at startup
-image_classifier = ImageClassifier()  # loads CNN weights once at startup
+image_classifier = ImageClassifier()  # loads CNN weights once at startup 
+digit_generator = DigitGenerator()  # loads GAN generator weights once at startup
 
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 
@@ -80,3 +83,12 @@ async def classify_image(file: UploadFile = File(...)):
     except Exception:
         raise HTTPException(status_code=400, detail="Could not read the file as an image")
     return {"filename": file.filename, **result}
+
+@app.get("/generate_digits", responses={200: {"content": {"image/png": {}}}})
+def generate_digits(
+    num_images: int = Query(16, ge=1, le=64, description="Number of digits to generate"),
+    seed: int | None = Query(None, description="Optional seed for reproducible output"),
+):
+    """Generate hand-written digits with the trained MNIST GAN; returns a PNG grid."""
+    png_bytes = digit_generator.generate_png(num_images, seed)
+    return Response(content=png_bytes, media_type="image/png")

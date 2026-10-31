@@ -72,3 +72,31 @@ uv run python train_cnn.py --epochs 10
 ```
 
 This downloads CIFAR-10 (about 170 MB) into `data/`, which is gitignored.
+
+## Assignment 3: GAN for MNIST digit generation
+
+A GAN trained on MNIST that generates hand-written digits, served through the `/generate_digits` endpoint.
+
+**Files**
+- `app/gan_model.py`: Generator and Discriminator architecture
+- `app/gan_generator.py`: loads trained weights and generates images
+- `app/generator.pth`: trained generator weights
+- `train_gan.py`: training script (20 epochs, Adam, BCE loss)
+
+**Run with Docker**
+```bash
+docker build -t sps-genai .
+docker run -p 8000:80 sps-genai
+```
+
+**Generate digits**
+Open http://127.0.0.1:8000/docs and try GET /generate_digits, or:
+```bash
+curl "http://127.0.0.1:8000/generate_digits?num_images=16" --output digits.png
+```
+Parameters: `num_images` (1 to 64, default 16), `seed` (optional, for reproducible output).
+
+**Retrain (optional)**
+```bash
+uv run python train_gan.py
+```
