@@ -6,6 +6,7 @@ from app.bigram_model import BigramModel
 from app.word_embeddings import WordEmbeddingModel
 from app.image_classifier import ImageClassifier 
 from app.gan_generator import DigitGenerator
+from app.cifar_generators import DiffusionImageGenerator, EnergyImageGenerator
 
 app = FastAPI(title="SPS GenAI API")
 
@@ -22,6 +23,8 @@ bigram_model = BigramModel(corpus)
 embedding_model = WordEmbeddingModel()  # loaded once at startup
 image_classifier = ImageClassifier()  # loads CNN weights once at startup 
 digit_generator = DigitGenerator()  # loads GAN generator weights once at startup
+diffusion_generator = DiffusionImageGenerator()  # loads diffusion weights once at startup
+ebm_generator = EnergyImageGenerator()  # loads EBM weights once at startup
 
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 
@@ -91,4 +94,25 @@ def generate_digits(
 ):
     """Generate hand-written digits with the trained MNIST GAN; returns a PNG grid."""
     png_bytes = digit_generator.generate_png(num_images, seed)
+    return Response(content=png_bytes, media_type="image/png")
+
+
+@app.get("/generate_diffusion", responses={200: {"content": {"image/png": {}}}})
+def generate_diffusion(
+    num_images: int = Query(8, ge=1, le=16, description="Number of CIFAR-10-style images to generate"),
+    seed: int | None = Query(None, description="Optional seed for reproducible output"),
+):
+    """Generate images with the DDPM diffusion model trained on CIFAR-10; returns a PNG grid."""
+    png_bytes = diffusion_generator.generate_png(num_images, seed)
+    return Response(content=png_bytes, media_type="image/png")
+
+
+@app.get("/generate_ebm", responses={200: {"content": {"image/png": {}}}})
+def generate_ebm(
+    num_images: int = Query(8, ge=1, le=16, description="Number of CIFAR-10-style images to generate"),
+    steps: int = Query(256, ge=10, le=1000, description="Number of Langevin sampling steps"),
+    seed: int | None = Query(None, description="Optional seed for reproducible output"),
+):
+    """Generate images with the energy-based model trained on CIFAR-10 via Langevin sampling; returns a PNG grid."""
+    png_bytes = ebm_generator.generate_png(num_images, steps, seed)
     return Response(content=png_bytes, media_type="image/png")

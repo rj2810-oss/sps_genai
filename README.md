@@ -100,3 +100,37 @@ Parameters: `num_images` (1 to 64, default 16), `seed` (optional, for reproducib
 ```bash
 uv run python train_gan.py
 ```
+
+## Assignment 4: Diffusion and Energy-Based Models for CIFAR-10
+
+Two image generators trained on CIFAR-10, served through `/generate_diffusion` and `/generate_ebm`.
+
+**Files**
+- `app/diffusion_model.py`: sinusoidal time embedding, UNet noise predictor, DDPM forward/reverse process (T = 500)
+- `app/ebm_model.py`: CNN energy function, Langevin sampler (gradient descent on the input image with model weights frozen), replay buffer
+- `app/cifar_generators.py`: loads trained weights and generates PNG grids for the API
+- `app/diffusion.pth`, `app/ebm.pth`: trained weights
+- `train_diffusion.py`, `train_ebm.py`: training scripts
+
+**Training**
+- Diffusion: 15 epochs, batch size 128, Adam (lr 2e-4), MSE loss on predicted noise. Final average loss about 0.048.
+- EBM: 3 epochs, batch size 128, Adam (lr 1e-4), contrastive divergence loss with energy regularization, 60 Langevin steps per batch, replay buffer of 8,192 images.
+
+**Run with Docker**
+```bash
+docker build -t sps-genai .
+docker run -p 8000:80 sps-genai
+```
+
+**Generate images**
+Open http://127.0.0.1:8000/docs and try GET /generate_diffusion or GET /generate_ebm, or:
+```bash
+curl "http://127.0.0.1:8000/generate_diffusion?num_images=8" --output diffusion.png
+curl "http://127.0.0.1:8000/generate_ebm?num_images=8&steps=256" --output ebm.png
+```
+
+**Retrain (optional)**
+```bash
+uv run python train_diffusion.py --epochs 15
+uv run python train_ebm.py --epochs 3
+```
